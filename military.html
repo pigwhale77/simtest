@@ -50,28 +50,44 @@ if(current<questions.length){
 function answer(i){scores[i]++;current++;render();}
 function result(){
 let max=Math.max(...scores), idx=scores.indexOf(max), t=types[idx];
-app.innerHTML=`<div class="result"><div class="result-icon">${t.icon}</div><h2>나와 가장 잘 맞는 군은<br><strong>${t.name}</strong>!</h2><p>${t.desc}</p><div class="score">내 성향 점수 · 육군 ${scores[0]} / 해군 ${scores[1]} / 공군 ${scores[2]} / 해병대 ${scores[3]}</div><div class="actions"><button class="btn primary" onclick="shareResult('${t.name}')">📤 결과 공유하기</button><button class="btn secondary" onclick="copyLink()">🔗 테스트 링크 복사</button><button class="btn secondary" onclick="location.reload()">↻ 다시 테스트하기</button></div></div>`;
+app.innerHTML=`<div class="result"><div class="result-icon">${t.icon}</div><h2>나와 가장 잘 맞는 군은<br><strong>${t.name}</strong>!</h2><p>${t.desc}</p><div class="score">내 성향 점수 · 육군 ${scores[0]} / 해군 ${scores[1]} / 공군 ${scores[2]} / 해병대 ${scores[3]}</div><div class="actions"><button class="btn primary" onclick="shareResult('${t.name}')">📤 내 결과 공유하기</button><button class="btn secondary" onclick="location.reload()">↻ 다시 테스트하기</button></div></div>`;
 }
 async function shareResult(type){
- const url=location.href.split("#")[0];
- const text=`🪖 나와 가장 잘 맞는 군은?\n나는 ${type}과 가장 잘 맞는 유형!\n\n👉 나도 테스트 해보기\n${url}`;
+ const url="https://military-test-h757.vercel.app/military.html";
+ const message=`🪖 나와 가장 잘 맞는 군은?\n나는 ${type}과 가장 잘 맞는 유형!\n\n너도 테스트해봐!\n${url}`;
+ const shareButton=document.querySelector(".actions .primary");
+ if(shareButton) shareButton.disabled=true;
  try{
-   const imageBlob=await makeResultImage(type);
-   const imageFile=new File([imageBlob],"나의-군-성향-결과.png",{type:"image/png"});
+   const imageBlob=await makeResultImage(type,url);
+   const imageFile=new File([imageBlob],"military-result.png",{type:"image/png"});
+   const fileShareData={title:"나와 가장 잘 맞는 군은?",text:message,files:[imageFile]};
    if(navigator.share && navigator.canShare && navigator.canShare({files:[imageFile]})){
-     await navigator.share({title:"나와 가장 잘 맞는 군은?",text:text,files:[imageFile]});
+     await navigator.share(fileShareData);
+     return;
+   }
+   if(navigator.share){
+     await navigator.share({title:"나와 가장 잘 맞는 군은?",text:message,url:url});
+     showToast("공유창을 열었어요. 결과 이미지는 기기에서 별도로 첨부해 주세요.");
      return;
    }
    downloadResultImage(imageBlob);
-   await copyText(text);
-   showToast("결과 이미지를 저장하고 링크를 복사했어요. 공유할 때 이미지를 함께 첨부해 주세요!");
+   showToast("이 브라우저는 바로 공유를 지원하지 않아 결과 이미지를 저장했어요.");
  }catch(e){
    if(e && e.name==="AbortError") return;
-   await copyText(text);
-   showToast("이미지 공유를 지원하지 않아 링크와 결과 문구를 복사했어요.");
+   if(navigator.share){
+     try{
+       await navigator.share({title:"나와 가장 잘 맞는 군은?",text:message,url:url});
+       return;
+     }catch(shareError){
+       if(shareError && shareError.name==="AbortError") return;
+     }
+   }
+   showToast("공유를 열지 못했어요. 크롬 또는 사파리에서 다시 시도해 주세요.");
+ }finally{
+   if(shareButton) shareButton.disabled=false;
  }
 }
-function makeResultImage(type){
+function makeResultImage(type,url){
  return new Promise((resolve,reject)=>{
    const canvas=document.createElement("canvas");
    canvas.width=1080; canvas.height=1350;
