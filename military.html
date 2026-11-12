@@ -54,9 +54,48 @@ app.innerHTML=`<div class="result"><div class="result-icon">${t.icon}</div><h2>�
 }
 async function shareResult(type){
  const url=location.href.split("#")[0];
- const text=`🪖 나와 가장 잘 맞는 군은?\\n나는 ${type}과 가장 잘 맞는 유형!\\n\\n👉 나도 테스트 해보기\\n${url}`;
- if(navigator.share){try{await navigator.share({title:"나와 가장 잘 맞는 군은?",text:text,url:url});return;}catch(e){}}
- await copyText(text); showToast("공유할 내용과 링크를 복사했어요!");
+ const text=`🪖 나와 가장 잘 맞는 군은?\n나는 ${type}과 가장 잘 맞는 유형!\n\n👉 나도 테스트 해보기\n${url}`;
+ try{
+   const imageBlob=await makeResultImage(type);
+   const imageFile=new File([imageBlob],"나의-군-성향-결과.png",{type:"image/png"});
+   if(navigator.share && navigator.canShare && navigator.canShare({files:[imageFile]})){
+     await navigator.share({title:"나와 가장 잘 맞는 군은?",text:text,files:[imageFile]});
+     return;
+   }
+   downloadResultImage(imageBlob);
+   await copyText(text);
+   showToast("결과 이미지를 저장하고 링크를 복사했어요. 공유할 때 이미지를 함께 첨부해 주세요!");
+ }catch(e){
+   if(e && e.name==="AbortError") return;
+   await copyText(text);
+   showToast("이미지 공유를 지원하지 않아 링크와 결과 문구를 복사했어요.");
+ }
+}
+function makeResultImage(type){
+ return new Promise((resolve,reject)=>{
+   const canvas=document.createElement("canvas");
+   canvas.width=1080; canvas.height=1350;
+   const ctx=canvas.getContext("2d");
+   const gradient=ctx.createLinearGradient(0,0,1080,1350);
+   gradient.addColorStop(0,"#7168ff"); gradient.addColorStop(1,"#a69fff");
+   ctx.fillStyle=gradient; ctx.fillRect(0,0,1080,1350);
+   ctx.fillStyle="rgba(255,255,255,.16)"; ctx.beginPath(); ctx.roundRect(55,55,970,1240,48); ctx.fill();
+   ctx.textAlign="center"; ctx.fillStyle="#ffffff";
+   ctx.font="bold 54px sans-serif"; ctx.fillText("심테연구소",540,190);
+   ctx.font="48px sans-serif"; ctx.fillText("나와 가장 잘 맞는 군은?",540,390);
+   const icons={"육군":"🪖","해군":"⚓","공군":"✈️","해병대":"🔴"};
+   ctx.font="150px sans-serif"; ctx.fillText(icons[type]||"⭐",540,650);
+   ctx.font="bold 112px sans-serif"; ctx.fillText(type,540,825);
+   ctx.font="42px sans-serif"; ctx.fillText("나의 성향 결과",540,930);
+   ctx.font="34px sans-serif"; ctx.fillText("당신의 결과도 확인해 보세요!",540,1080);
+   ctx.font="30px sans-serif"; ctx.fillText("테스트 링크는 공유 메시지에 함께 있어요",540,1190);
+   canvas.toBlob(blob=>blob?resolve(blob):reject(new Error("이미지 생성 실패")),"image/png");
+ });
+}
+function downloadResultImage(blob){
+ const link=document.createElement("a"); const objectUrl=URL.createObjectURL(blob);
+ link.href=objectUrl; link.download="나의-군-성향-결과.png"; link.click();
+ setTimeout(()=>URL.revokeObjectURL(objectUrl),1000);
 }
 async function copyLink(){await copyText(location.href.split("#")[0]);showToast("테스트 링크를 복사했어요!");}
 async function copyText(t){try{await navigator.clipboard.writeText(t);}catch(e){const ta=document.createElement("textarea");ta.value=t;document.body.appendChild(ta);ta.select();document.execCommand("copy");ta.remove();}}
